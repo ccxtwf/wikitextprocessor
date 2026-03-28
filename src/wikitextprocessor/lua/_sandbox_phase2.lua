@@ -191,7 +191,7 @@ local function _lua_invoke(mod_name, fn_name, frame, page_title, timeout)
         return st, v
     end
     if type(v) == "table" then
-        return st, "table"
+        return st, v
     end
     if v == nil then
         return st, ""

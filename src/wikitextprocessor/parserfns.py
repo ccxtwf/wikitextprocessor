@@ -1442,32 +1442,6 @@ def unimplemented_fn(
     return "{{" + fn_name + ":" + "|".join(map(str, args)) + "}}"
 
 
-def statements_fn(
-    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
-) -> str:
-    # https://www.wikidata.org/wiki/Wikidata:How_to_use_data_on_Wikimedia_projects
-    # XXX? This implementation doesn't implement the fancy things #statements
-    # generates, like links or images
-    return property_fn(wtp, fn_name, args, expander)
-
-
-def property_fn(
-    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
-) -> str:
-    # #property is meant to be for pulling bare bones data, I guess.
-    # Does not pull correct data, for example coordinates
-
-    from .wikidata import statement_query
-
-    prop = ""
-    wikidata_item = ""
-    if len(args) > 0:
-        prop = expander(args[0])
-    if len(args) > 1 and args[1].startswith("from="):
-        wikidata_item = expander(args[1]).removeprefix("from=")
-    return statement_query(wtp, prop, wikidata_item, wtp.lang_code)
-
-
 def pagelanguage_fn(
     ctx: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
 ) -> str:
@@ -1670,6 +1644,61 @@ def int_fn(
         return f"⧼{args[0]}⧽"
     return f"[[:{wtp.LOCAL_NS_NAME_BY_ID.get(10, '')}:int:]]"
 
+def var_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    # https://www.mediawiki.org/wiki/Extension:Variables
+    if len(args) == 0:
+        return "{{" + fn_name + "}}"
+    vname = args[0]
+    v = wtp.variable_store.get(vname, None)
+    if v is not None:
+        return v
+    if len(args) > 1:
+        return expander(args[1])
+    return ""
+
+def vardefine_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    # https://www.mediawiki.org/wiki/Extension:Variables
+    if len(args) == 0:
+        return "{{" + fn_name + "}}"
+    vname = args[0]
+    wtp.variable_store[vname] = expander(args[1]) if len(args) > 1 else ""
+    return ""
+
+def vardefineecho_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    # https://www.mediawiki.org/wiki/Extension:Variables
+    if len(args) == 0:
+        return "{{" + fn_name + "}}"
+    vname = args[0]
+    wtp.variable_store[vname] = expander(args[1]) if len(args) > 1 else ""
+    return wtp.variable_store[vname]
+
+def varexists_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    # https://www.mediawiki.org/wiki/Extension:Variables
+    if len(args) == 0:
+        return "{{" + fn_name + "}}"
+    vname = args[0]
+    has_var = vname in wtp.variable_store
+    if len(args) == 1:
+        return "1" if has_var else ""
+    a, b = args[1], args[2] if len(args) >= 2 else ""
+    return expander(a) if has_var else expander(b)
+
+def varfinal_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    # https://www.mediawiki.org/wiki/Extension:Variables
+    if len(args) == 0:
+        return "{{" + fn_name + "}}"
+    wtp.replace_varfinal.add(args[0])
+    return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
 
 # This list should include names of predefined parser functions and
 # predefined variables (some of which can take arguments using the same
@@ -1797,9 +1826,9 @@ PARSER_FUNCTIONS = {
     "#lst": lst_fn,
     "#lsth": unimplemented_fn,
     "#lstx": unimplemented_fn,
-    "#property": property_fn,
+    "#property": unimplemented_fn,
     "#related": unimplemented_fn,
-    "#statements": statements_fn,
+    "#statements": unimplemented_fn,
     "#target": unimplemented_fn,
     # From Help:Extension:ParserFunctions
     "#len": len_fn,
@@ -1823,6 +1852,12 @@ PARSER_FUNCTIONS = {
     "#section-x": unimplemented_fn,
     "#language": language_fn,
     "int": int_fn,
+    "#var": var_fn,
+    "#vardefine": vardefine_fn,
+    "#vardefineecho": vardefineecho_fn,
+    "#varexists": varexists_fn,
+    "#var final": varfinal_fn,
+    "#seo": unimplemented_fn,
 }
 
 

@@ -181,6 +181,24 @@ def mw_text_jsonencode(s: str, flags: int) -> str:
     value = recurse(s)
     return json.dumps(value, sort_keys=True)
 
+def variables_lua_var(ctx: "Wtp", name: str, default: str | None = None) -> str:
+    v = ctx.variable_store.get(name, None)
+    if v is not None:
+        return v
+    return default or ""
+
+def variables_lua_varexists(ctx: "Wtp", name: str) -> bool:
+    return name in ctx.variable_store
+
+def variables_lua_vardefine(ctx: "Wtp", name: str, value: str) -> None:
+    ctx.variable_store[name] = value
+
+def variables_lua_vardefineecho(ctx: "Wtp", name: str, value: str) -> str:
+    ctx.variable_store[name] = value
+    return ctx.variable_store.get(name, "")
+
+def variables_lua_varfinal(ctx: "Wtp", name: str, default: str | None = None) -> str:
+    return "{{" + f"var final:{name}{"" if default is None else ("|" + default)}" + "}}"
 
 def get_page_info(ctx: "Wtp", title: str, namespace_id: int) -> "_LuaTable":
     """Retrieves information about a page identified by its table (with
@@ -251,8 +269,6 @@ def mw_language_format_date_python(
 def call_set_functions(
     ctx: "Wtp", set_functions: Callable[["_LuaTable"], None]
 ) -> None:
-    from .wikidata import mw_wikibase_getEntity, mw_wikibase_getSitelink
-
     assert ctx.lua is not None
     # Set functions that are implemented in Python
     set_functions(
@@ -268,18 +284,6 @@ def call_set_functions(
                 "mw_python_fetch_language_names": partial(
                     fetch_language_names, ctx
                 ),
-                "mw_wikibase_getlabel_python": partial(
-                    mw_wikibase_getlabel, ctx
-                ),
-                "mw_wikibase_getdesc_python": partial(
-                    mw_wikibase_getdescription, ctx
-                ),
-                "mw_wikibase_getEntityIdForCurrentPage_py": partial(
-                    mw_wikibase_getEntityIdForCurrentPage, ctx
-                ),
-                "mw_wikibase_getEntityIdForTitle_py": partial(
-                    mw_wikibase_getEntityIdForTitle, ctx
-                ),
                 "mw_current_title_python": partial(get_current_title, ctx),
                 "current_frame_python": partial(
                     top_lua_stack, ctx.lua_frame_stack
@@ -288,9 +292,20 @@ def call_set_functions(
                 "mw_language_format_date_python": partial(
                     mw_language_format_date_python, ctx
                 ),
-                "mw_wikibase_getEntity_py": partial(mw_wikibase_getEntity, ctx),
-                "mw_wikibase_getSitelink_py": partial(
-                    mw_wikibase_getSitelink, ctx
+                "variables_lua_var": partial(
+                    variables_lua_var, ctx
+                ),
+                "variables_lua_vardefine": partial(
+                    variables_lua_vardefine, ctx
+                ),
+                "variables_lua_vardefineecho": partial(
+                    variables_lua_vardefineecho, ctx
+                ),
+                "variables_lua_varexists": partial(
+                    variables_lua_varexists, ctx
+                ),
+                "variables_lua_varfinal": partial(
+                    variables_lua_varfinal, ctx
                 ),
             }
         )
@@ -312,7 +327,6 @@ def set_lua_env_funcs(lua, wtp):
     set_global_lua_variable(
         lua, "mw_jsondecode_python", partial(mw_text_jsondecode, wtp)
     )
-
 
 def initialize_lua(ctx: "Wtp") -> None:
     def filter_attribute_access(
@@ -758,32 +772,6 @@ def call_lua_sandbox(
     return '<strong class="error">{} in {} function {}</strong>'.format(
         msg, html.escape(modname), html.escape(modfn)
     )
-
-
-def mw_wikibase_getlabel(wtp: "Wtp", item_id: str) -> str:
-    from .wikidata import query_item_label
-
-    return query_item_label(wtp, item_id)
-
-
-def mw_wikibase_getdescription(wtp: "Wtp", item_id: str) -> str:
-    from .wikidata import query_item_desc
-
-    return query_item_desc(wtp, item_id)
-
-
-def mw_wikibase_getEntityIdForCurrentPage(wtp: "Wtp") -> Optional[str]:
-    from .wikidata import query_entity_id_for_title
-
-    return query_entity_id_for_title(wtp, wtp.title or "ERROR_TITLE", "")
-
-
-def mw_wikibase_getEntityIdForTitle(
-    wtp: "Wtp", title: str, site_id: str
-) -> Optional[str]:
-    from .wikidata import query_entity_id_for_title
-
-    return query_entity_id_for_title(wtp, title, site_id)
 
 
 def top_lua_stack(env_stack: deque) -> Optional["_LuaTable"]:

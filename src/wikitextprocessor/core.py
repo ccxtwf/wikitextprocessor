@@ -284,6 +284,8 @@ class Wtp:
         "linktrailing_re",
         "wiki_domain",
         "api_script_path",
+        "variable_store", # simulate Extension:Variables
+        "replace_varfinal", # simulate Extension:Variables
     )
 
     def __init__(
@@ -343,6 +345,8 @@ class Wtp:
         self.allowed_html_tags: dict[str, HTMLTagData] = ALLOWED_HTML_TAGS
         self.wiki_domain: str = wiki_domain
         self.api_script_path: str = api_script_path
+        self.variable_store: dict[str, str] = defaultdict(None)
+        self.replace_varfinal: set[str] = set()
 
         if extension_tags is not None:
             self.allowed_html_tags.update(extension_tags)
@@ -1100,6 +1104,8 @@ class Wtp:
         self.lua_env_stack.clear()
         self.lua_frame_stack.clear()
         self.strip_marker_cache.clear()
+        self.variable_store = defaultdict(None)
+        self.replace_varfinal = set()
 
     def start_section(self, title: Optional[str]) -> None:
         """Starts processing a new section of the current page.  Calling this
@@ -1658,10 +1664,24 @@ class Wtp:
         # operation.
         expanded = expand_recurse(encoded, parent, not pre_expand)
 
+        expanded = self._inject_varfinal(expanded)
+
         # Expand any remaining magic cookies and remove nowiki char
         expanded = self._finalize_expand(expanded)
 
         return expanded
+
+    def _inject_varfinal(self, text: str) -> str:
+        """Replaces any {{#var final}} invocations"""
+        for vname in self.replace_varfinal:
+            v = self.variable_store.get(vname, None)
+            if v is None:
+                continue
+            pattern = re.compile("\\{\\{#var final:" + f"{vname}(?:\\|.*?|)" + "\\}\\}")
+            text = re.sub(pattern, v, text)
+        text = re.sub(r"\{\{#var final:[^\|]+\|([^\}]*?)\}\}", r"\1", text)
+        text = re.sub(r"\{\{#var final:.*?\}\}", "", text)
+        return text
 
     def _finalize_expand(self, text: str) -> str:
         """Expands any remaining magic characters (to their original values)
