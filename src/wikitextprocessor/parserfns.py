@@ -1700,6 +1700,11 @@ def varfinal_fn(
     wtp.replace_varfinal.add(args[0])
     return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
 
+def custom_videolink_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    return "<{{#|" + "|".join(map(str, args)) + "}}>"
+
 # This list should include names of predefined parser functions and
 # predefined variables (some of which can take arguments using the same
 # syntax as parser functions and we treat them as parser functions).
@@ -1858,6 +1863,8 @@ PARSER_FUNCTIONS = {
     "#varexists": varexists_fn,
     "#var final": varfinal_fn,
     "#seo": unimplemented_fn,
+    "#ev": unimplemented_fn,
+    "#": custom_videolink_fn,
 }
 
 
