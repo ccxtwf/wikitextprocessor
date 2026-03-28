@@ -409,7 +409,7 @@ def servername_fn(
     ctx: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
 ) -> str:
     """Implements the SERVERNAME magic word."""
-    return f"{ctx.lang_code}.{ctx.project}.org"
+    return ctx.wiki_domain
 
 
 def currentyear_fn(
@@ -680,7 +680,7 @@ def fullurl_fn(
     https://www.mediawiki.org/wiki/Help:Magic_words#URL_data
     """
     page_name = expander(args[0]).strip() if args else ""
-    url = f"//{ctx.lang_code}.{ctx.project}.org/wiki/$1"
+    url = f"//{ctx.wiki_domain}/wiki/$1"
     if ":" in page_name:
         quote_index = page_name.index(":")
         interwiki_prefix = page_name[:quote_index]
@@ -1661,8 +1661,6 @@ def int_fn(
             return expander(args[index])
         return m.group()
 
-    if wtp.project == "wiktionary" and len(args) > 0 and args[0] == "lang":
-        return wtp.lang_code
     if len(args) > 0 and len(args[0]) > 0:
         page_body = wtp.get_page_body(
             args[0], wtp.NAMESPACE_DATA["MediaWiki"]["id"]

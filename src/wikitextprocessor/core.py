@@ -272,7 +272,6 @@ class Wtp:
         "template_override_funcs",
         "lua_env_stack",
         "lua_frame_stack",
-        "project",  # "wiktionary" or "wikipedia"
         "strip_marker_cache",
         "allowed_html_tags",
         "html_permitted_parents",
@@ -283,6 +282,8 @@ class Wtp:
         "wiki_notices",  # WIKI error messages
         "wikidata_session",
         "linktrailing_re",
+        "wiki_domain",
+        "api_script_path",
     )
 
     def __init__(
@@ -290,10 +291,11 @@ class Wtp:
         db_path: Optional[Union[str, Path]] = None,
         lang_code="en",
         template_override_funcs: dict[str, Callable[[Sequence[str]], str]] = {},
-        project: str = "wiktionary",
         extension_tags: Optional[dict[str, HTMLTagData]] = None,
         parser_function_aliases: dict[str, str] = {},
         quiet: bool = False,
+        wiki_domain: str = "http://localhost:8080",
+        api_script_path: str = "/w/api.php",
     ):
         if isinstance(db_path, str):
             self.db_path: Optional[Path] = Path(db_path)
@@ -319,8 +321,8 @@ class Wtp:
         self.rev_ht: dict[CookieData, str] = {}
         self.expand_stack: list[str] = []  # XXX: this has a confusing name
         self.parser_stack: list["WikiNode"] = []
-        self.lang_code = lang_code  # dump file language code
-        self.data_folder = files("wikitextprocessor") / "data" / lang_code
+        self.lang_code = lang_code
+        self.data_folder = files("wikitextprocessor") / "data"
         self.init_namespace_data()
         self.create_db()
         self.template_override_funcs = template_override_funcs
@@ -337,9 +339,11 @@ class Wtp:
         self.suppress_special = False
         self.lua_env_stack: deque["_LuaTable"] = deque()
         self.lua_frame_stack: deque["_LuaTable"] = deque()
-        self.project = project
         self.strip_marker_cache: defaultdict[str, int] = defaultdict(int)
         self.allowed_html_tags: dict[str, HTMLTagData] = ALLOWED_HTML_TAGS
+        self.wiki_domain: str = wiki_domain
+        self.api_script_path: str = api_script_path
+
         if extension_tags is not None:
             self.allowed_html_tags.update(extension_tags)
         # Set of HTML tags that need an explicit end tag.
@@ -365,8 +369,11 @@ class Wtp:
         # Will be modified later in wiktextract wxr through WiktionaryConfig.
         self.linktrailing_re = re.compile(r"(?s)(\w+)(.*)")
 
+    @property
+    def api_entrypoint(self) -> str:
+        return f"{self.wiki_domain}{self.api_script_path}"
+
     def create_db(self) -> None:
-        from .wikidata import init_wikidata_cache
 
         if self.db_path is None:
             temp_file = tempfile.NamedTemporaryFile(
@@ -394,7 +401,6 @@ class Wtp:
         PRAGMA journal_mode = WAL;
         """
         )
-        init_wikidata_cache(self)
 
     @property
     def backup_db_path(self) -> Path:
@@ -1581,14 +1587,7 @@ class Wtp:
                             t = expand_recurse(
                                 encoded_body,
                                 new_parent,
-                                expand_all
-                                or (
-                                    template_page.need_pre_expand
-                                    and not (
-                                        self.lang_code == "en"
-                                        and self.project == "wiktionary"
-                                    )
-                                ),
+                                expand_all or template_page.need_pre_expand,
                             )
                         else:
                             # template doesn't exist
@@ -1661,12 +1660,6 @@ class Wtp:
 
         # Expand any remaining magic cookies and remove nowiki char
         expanded = self._finalize_expand(expanded)
-
-        # Remove LanguageConverter markups:
-        # https://www.mediawiki.org/wiki/Writing_systems/Syntax
-        # but ignore `-{}-` template argument placeholder: #59
-        if not pre_expand and self.lang_code in ["zh", "ku"] and text != "-{}-":
-            expanded = expanded.replace("-{", "").replace("}-", "")
 
         return expanded
 
