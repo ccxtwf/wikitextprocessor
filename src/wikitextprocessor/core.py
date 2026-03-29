@@ -296,7 +296,7 @@ class Wtp:
         extension_tags: Optional[dict[str, HTMLTagData]] = None,
         parser_function_aliases: dict[str, str] = {},
         quiet: bool = False,
-        wiki_domain: str = "http://localhost:8080",
+        wiki_domain: str = "https://vocaloidlyrics.miraheze.org",
         api_script_path: str = "/w/api.php",
     ):
         if isinstance(db_path, str):

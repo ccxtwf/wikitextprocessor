@@ -2383,13 +2383,13 @@ foo
         self.assertTrue(isinstance(x, str))
 
     def test_file_animal(self):
-        with open("tests/animal.txt", "r") as f:
+        with open("tests/animal.txt", "r", encoding="utf-8") as f:
             self.parse("animal", f.read())
             self.assertEqual(self.ctx.errors, [])
 
     def test_file_Babel(self):
         self.ctx.add_page("Template:isValidPageName", 10, "")
-        with open("tests/Babel.txt", "r") as f:
+        with open("tests/Babel.txt", "r", encoding="utf-8") as f:
             self.parse("Babel", f.read(), pre_expand=True)
             self.assertEqual(self.ctx.errors, [])
 
@@ -2875,10 +2875,6 @@ foo
         tests = [
             ["{{:page_in_main_ns}}", ":page_in_main_ns"],  # transclude page
             ["{{Template:title}}", "title"],
-            ["{{t:title}}", "title"],  # alias
-            # template name could have ":"
-            # https://en.wiktionary.org/wiki/Template:RQ:Schuster_Hepaticae
-            ["{{RQ:Schuster Hepaticae}}", "RQ:Schuster Hepaticae"],
         ]
         self.ctx.start_page("")
         for wikitext, title in tests:

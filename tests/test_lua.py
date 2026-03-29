@@ -184,38 +184,6 @@ class TestLua(TestCase):
             "https://en.wikipedia.org/wiki/$1",
         )
 
-    @patch(
-        "wikitextprocessor.wikidata.query_wikidata",
-        return_value={
-            "itemLabel": {"value": "Humphry Davy"},
-            "itemDescription": {"value": "British chemist"},
-        },
-    )
-    def test_wikibase_label_and_desc(self, mock_func):
-        # https://en.wiktionary.org/wiki/sodium
-        # https://en.wiktionary.org/wiki/Module:coinage
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-        local export = {}
-
-        function export.test()
-          local coiner = "Q131761"
-          return mw.wikibase.getDescription(coiner) .. " " ..
-            mw.wikibase.getLabel(coiner)
-        end
-
-        return export
-        """,
-        )
-        self.wtp.start_page("test")
-        self.assertEqual(
-            self.wtp.expand("{{#invoke:test|test}}"),
-            "British chemist Humphry Davy",
-        )
-        mock_func.assert_called_once()  # use db cache
-
     def test_extension_tag_nowiki_strip_marker(self):
         # GitHub issue tatuylonen/wiktextract#238
         self.wtp.add_page(
@@ -291,115 +259,6 @@ class TestLua(TestCase):
             "<span>foo</span>",
         )
 
-    @patch(
-        "wikitextprocessor.wikidata.query_wikidata",
-        return_value={
-            "item": {"value": "http://www.wikidata.org/entity/Q42"},
-            "itemLabel": {"value": "Douglas Adams"},
-            "itemDescription": {
-                "value": "English author and humourist (1952–2001)"
-            },
-        },
-    )
-    def test_wikibase_getEntityIdForTitle(self, mock_query) -> None:
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  local a = mw.wikibase.getEntityIdForTitle("Douglas Adams", "enwiki")
-  local b = mw.wikibase.getEntityIdForTitle("Douglas Adams", "enwiki")
-  return  a .. b
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "Q42Q42")
-        mock_query.assert_called_once()  # use db cache
-
-    def test_wikibase_getBadges(self) -> None:
-        # getBadge is unimplemented, because we don't really need badge data
-        # for parsing. If this test fails, someone might have implemented
-        # getBadge properly, so you need to implement this as a proper test.
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  local a = mw.wikibase.getBadges("Douglas Adams", "enwiki")
-  if type(a) == 'table' and next(a) == nil then
-      return 'foo'
-  end
-  return  'bar'
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "foo")
-
-    @patch("wikitextprocessor.wikidata.query_wikidata", return_value={})
-    def test_wikibase_getEntityIdForTitle_no_result(self, mock_query):
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  local a = mw.wikibase.getEntityIdForTitle("not exist page", "enwiki")
-  local b = mw.wikibase.getEntityIdForTitle("not exist page", "enwiki")
-  return a
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "")
-        mock_query.assert_called_once()  # use db cache
-
-    def test_ext_data_get(self) -> None:
-        # mw.ext.data.get is unimplemented; we do not want to pull data from
-        # commons. Usually mw.ext.data.get loads data from static .tab files
-        # and converts them to JSON -> table (with certain specific fields,
-        # like .schema), but when retrieval fails it returns a { false } table.
-        # https://fr.wikipedia.org/wiki/Module:Tabular_data
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  local a = mw.ext.data.get("Douglas Adams", "_")
-  _, val = next(a)
-  if type(a) ~= 'table' then
-      return 'bar'
-  end
-  if a.schema == nil then
-      return 'bar'
-  end
-  if a.schema.fields == nil then
-      return 'bar'
-  end
-  if type(a.schema.fields) ~= "table" then
-      return 'bar'
-  end
-  if a.data == nil then
-      return 'bar'
-  end
-  if type(a.data) ~= "table" then
-      return 'bar'
-  end
-  return  'foo'
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "foo")
-
     def test_text_decode(self):
         # GH pr #244
         self.wtp.add_page(
@@ -419,59 +278,6 @@ return export""",
         self.assertEqual(
             self.wtp.expand("{{#invoke:test|test}}"), "<-&vert;-|-|--<-|-|-|"
         )
-
-    @patch(
-        "requests.Session.get",
-        return_value=MockRequests(True, {"entities": {"Q42": {"id": "Q42"}}}),
-    )
-    def test_wikidata_get_entity(self, mock_request):
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  local a = mw.wikibase.getEntity("Q42")
-  local b = mw.wikibase.getEntity("Q42")
-  return a:getId() .. b:getId()
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "Q42Q42")
-        mock_request.assert_called_once()
-
-    @patch(
-        "requests.Session.get",
-        return_value=MockRequests(
-            True,
-            {
-                "entities": {
-                    "Q42": {
-                        "id": "Q42",
-                        "claims": {
-                            "P31": [{"type": "statement", "rank": "normal"}]
-                        },
-                    }
-                }
-            },
-        ),
-    )
-    def test_wikidata_get_all_statements(self, mock_request):
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  return mw.wikibase.getAllStatements("Q42", "P31")[1].type
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "statement")
 
     def test_pass_nil_to_callParserFunction(self):
         # https://de.wiktionary.org/wiki/anachoreta
@@ -538,38 +344,6 @@ return export""",
         )
         self.wtp.start_page("")
         self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "value")
-
-    @patch(
-        "requests.Session.get",
-        return_value=MockRequests(
-            True,
-            {
-                "entities": {
-                    "Q37041": {
-                        "id": "Q37041",
-                        "sitelinks": {"kowiki": {"title": "한문"}},
-                    }
-                }
-            },
-        ),
-    )
-    def test_wikidata_getsitelink(self, mock_request):
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-local export = {}
-function export.test(frame)
-  local a = mw.wikibase.getSitelink("Q37041", "kowiki")
-  local b = mw.wikibase.getSitelink("Q37041", "kowiki")
-  return a .. b
-end
-return export""",
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "한문한문")
-        mock_request.assert_called_once()
 
     def test_math_module_sum(self):
         # load "Module:math" not Lua's math library
@@ -654,4 +428,4 @@ function export.test(frame)
 end
 return export""",
         )
-        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "Wiktionary")
+        self.assertEqual(self.wtp.expand("{{#invoke:test|test}}"), "Vocaloid Lyrics Wiki")

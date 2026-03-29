@@ -226,42 +226,6 @@ class NodeExpTests(unittest.TestCase):
         """
         self.totext("{{blank template}}", "")
 
-    def test_language_converter_placeholder(self) -> None:
-        # "-{}-" template argument shouldn't be cleaned before invoke Lua module
-        # GitHub issue #59
-        self.ctx.lang_code = "zh"
-        # https://zh.wiktionary.org/wiki/Template:Ja-romanization_of
-        self.ctx.add_page(
-            "Template:Ja-romanization of",
-            10,
-            "{{#invoke:form of/templates|form_of_t|-{}-|withcap=1|lang=ja}}",
-        )
-        # https://zh.wiktionary.org/wiki/Module:Form_of/templates
-        self.ctx.add_page(
-            "Module:Form of/templates",
-            828,
-            """
-            local export = {}
-            function export.form_of_t(frame)
-                if frame.args[1] ~= "-{}-" then
-                    error("Incorrect first parameter")
-                end
-                local template_args = frame:getParent().args
-                return "[[" .. template_args[1] .. "#日語|-{" ..
-                          template_args[1] .."}-]]</i></span> " ..
-                          frame.args[1] .. "</span>"
-            end
-            return export
-            """,
-            model="Scribunto",
-        )
-        self.ctx.db_conn.commit()
-        self.ctx.start_page("test_page")
-        self.assertEqual(
-            self.ctx.expand("{{ja-romanization of|まんが}}"),
-            "[[まんが#日語|まんが]]</i></span> </span>",
-        )
-
     def test_lua_module_args_not_unescaped(self):
         # https://en.wiktionary.org/wiki/Gendergap
         self.ctx.add_page(

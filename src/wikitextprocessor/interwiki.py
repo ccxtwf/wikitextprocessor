@@ -6,24 +6,28 @@ if TYPE_CHECKING:
 
 def get_interwiki_data(wtp: "Wtp") -> list[dict[str, Union[str, bool]]]:
     import requests
+    from .request_utils import get_user_agent
 
-    from .wikidata import get_user_agent
+    results = []
+    params = {  # type: ignore
+        "action": "query",
+        "meta": "siteinfo",
+        "siprop": "interwikimap",
+        "format": "json",
+        "formatversion": 2,
+    }
+    headers = {"user-agent": get_user_agent()}
 
-    r = requests.get(
-        f"https://{wtp.lang_code}.{wtp.project}.org/w/api.php",
-        params={  # type: ignore
-            "action": "query",
-            "meta": "siteinfo",
-            "siprop": "interwikimap",
-            "format": "json",
-            "formatversion": 2,
-        },
-        headers={"user-agent": get_user_agent()},
-    )
-    if r.ok:
-        results = r.json()
-        return results.get("query", {}).get("interwikimap", [])
-    return []
+    for url in ["https://meta.miraheze.org/w/api.php", wtp.api_entrypoint]:
+        r = requests.get(
+            url,
+            params=params,
+            headers=headers,
+        )
+        if r.ok:
+            j = r.json()
+            results.extend(j.get("query", {}).get("interwikimap", []))
+    return results
 
 
 def init_interwiki_map(wtp: "Wtp") -> None:
@@ -51,15 +55,13 @@ def init_interwiki_map(wtp: "Wtp") -> None:
 
 
 def get_interwiki_map(wtp: "Wtp") -> dict[str, dict[str, Union[str, bool]]]:
-    return {
+    data = {
         prefix: {
             "prefix": prefix,
             "url": url if not protorel else url.removeprefix("https:"),
             "isProtocolRelative": bool(protorel),
             "isLocal": bool(local),
-            "isCurrentWiki": url.startswith(
-                f"https://{wtp.lang_code}.{wtp.project}.org"
-            ),
+            "isCurrentWiki": url.startswith(wtp.api_entrypoint),
             "isTranscludable": False,
             "isExtraLanguageLink": False,
         }
@@ -67,6 +69,8 @@ def get_interwiki_map(wtp: "Wtp") -> dict[str, dict[str, Union[str, bool]]]:
             "SELECT * FROM interwiki_maps"
         )
     }
+    print(data)
+    return data
 
 
 def mw_site_interwikiMap(wtp, filter_arg=None):

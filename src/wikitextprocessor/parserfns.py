@@ -402,7 +402,7 @@ def server_fn(
     ctx: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
 ) -> str:
     """Implements the SERVER magic word."""
-    return "//" + servername_fn(ctx, fn_name, args, expander)
+    return servername_fn(ctx, fn_name, args, expander)
 
 
 def servername_fn(
@@ -680,7 +680,7 @@ def fullurl_fn(
     https://www.mediawiki.org/wiki/Help:Magic_words#URL_data
     """
     page_name = expander(args[0]).strip() if args else ""
-    url = f"//{ctx.wiki_domain}/wiki/$1"
+    url = f"{ctx.wiki_domain}/wiki/$1"
     if ":" in page_name:
         quote_index = page_name.index(":")
         interwiki_prefix = page_name[:quote_index]
@@ -1845,25 +1845,22 @@ PARSER_FUNCTIONS = {
     "#explode": explode_fn,
     "#urldecode": urldecode_fn,
     "#urlencode": urlencode_fn,
-    # Additional language names for certain functions
-    # See https://www.mediawiki.org/wiki/Extension:Labeled_Section_Transclusion
-    "#section": lst_fn,  # English
-    "#Abschnitt": lst_fn,  # German
-    "#trecho": lst_fn,  # Portuguese
-    "#קטע": lst_fn,  # Hebrew
-    "#section-h": unimplemented_fn,
-    "#Abschnitt-x": unimplemented_fn,
-    "#trecho-x": unimplemented_fn,
-    "#section-x": unimplemented_fn,
     "#language": language_fn,
     "int": int_fn,
+    # Extension:Variables
     "#var": var_fn,
     "#vardefine": vardefine_fn,
     "#vardefineecho": vardefineecho_fn,
     "#varexists": varexists_fn,
     "#var final": varfinal_fn,
+    # Extension:WikiSEO
     "#seo": unimplemented_fn,
+    # Extension:EmbedVideo
     "#ev": unimplemented_fn,
+    "#evl": unimplemented_fn,
+    "#evt": unimplemented_fn,
+    "#evu": unimplemented_fn,
+    # Custom VLW
     "#": custom_videolink_fn,
 }
 

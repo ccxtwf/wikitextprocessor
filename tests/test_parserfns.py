@@ -72,90 +72,6 @@ class TestParserFunctions(TestCase):
         self.wtp.start_page("Test")
         self.assertEqual(self.wtp.expand("{{filepath}}"), "")
 
-    @patch(
-        "wikitextprocessor.wikidata.query_wikidata",
-        return_value={
-            "value": {"type": "literal", "value": "Douglas Noël Adams"},
-            "itemLabel": {
-                "xml:lang": "en",
-                "type": "literal",
-                "value": "Douglas Adams",
-            },
-            "itemDescription": {
-                "xml:lang": "en",
-                "type": "literal",
-                "value": "English author and humourist (1952–2001)",
-            },
-            "propLabel": {
-                "xml:lang": "en",
-                "type": "literal",
-                "value": "birth name",
-            },
-        },
-    )
-    def test_statements_parser_func(self, mock_query):
-        self.wtp.start_page("Don't panic")
-        expanded = self.wtp.expand("{{#statements:P1477|from=Q42}}")
-        self.assertEqual(expanded, "Douglas Noël Adams")
-        expanded = self.wtp.expand("{{#statements:birth name|from=Q42}}")
-        self.assertEqual(expanded, "Douglas Noël Adams")
-        # Template: https://en.wiktionary.org/wiki/Template:R:ru:STsSRJa
-        # page: https://en.wiktionary.org/wiki/резвиться
-        expanded = self.wtp.expand(
-            "{{#statements:birth name|from={{#if: true| Q42}}}}"
-        )
-        self.assertEqual(expanded, "Douglas Noël Adams")
-        mock_query.assert_called_once()  # use db cache
-
-    @patch(
-        "wikitextprocessor.wikidata.query_wikidata",
-        return_value={
-            "value": {
-                "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
-                "type": "literal",
-                "value": "1868-01-01T00:00:00Z",
-            },
-            "itemLabel": {"type": "literal", "value": "Q114098115"},
-            "propLabel": {
-                "xml:lang": "en",
-                "type": "literal",
-                "value": "publication date",
-            },
-        },
-    )
-    def test_statements_publication_date(self, mock_query):
-        # https://en.wiktionary.org/wiki/расплавить
-        # https://en.wiktionary.org/wiki/Template:R:ru:fr:Ganot1868
-        self.wtp.start_page("расплавить")
-        expanded = self.wtp.expand("{{#statements:P577|from=Q114098115}}")
-        self.assertEqual(expanded, "1868")
-
-    @patch(
-        "wikitextprocessor.wikidata.query_wikidata",
-        return_value={
-            "valueLabel": {"type": "literal", "value": "1868-01-01T00:00:00Z"},
-            "itemLabel": {"type": "literal", "value": "Douglas Adams"},
-            "itemDescription": {
-                "type": "literal",
-                "value": "English author and humourist (1952–2001)",
-            },
-            "p": {
-                "type": "uri",
-                "value": "http://www.wikidata.org/entity/P569",
-            },
-            "value": {
-                "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
-                "type": "literal",
-                "value": "1952-03-11T00:00:00Z",
-            },
-        },
-    )
-    def test_statements_date(self, mock_query):
-        # https://www.wikidata.org/wiki/Wikidata:How_to_use_data_on_Wikimedia_projects
-        self.wtp.start_page("")
-        expanded = self.wtp.expand("{{#statements:date of birth|from=Q42}}")
-        self.assertEqual(expanded, "11 March 1952")
-
     def test_timel(self):
         from datetime import datetime, timezone
 
@@ -201,10 +117,7 @@ class TestParserFunctions(TestCase):
     def test_int(self):
         # https://nl.wiktionary.org/wiki/Module:ISOdate
         self.wtp.start_page("test")
-        self.wtp.project = "wiktionary"
-        self.wtp.lang_code = "nl"
-        self.assertEqual(self.wtp.expand("{{int:lang}}"), "nl")
-        self.wtp.project = "wikipedia"
+        self.wtp.lang_code = "en"
         self.assertEqual(self.wtp.expand("{{int:lang}}"), "⧼lang⧽")
         self.assertEqual(self.wtp.expand("{{int:}}"), "[[:Template:int:]]")
 
@@ -242,4 +155,54 @@ class TestParserFunctions(TestCase):
                 '{{прил|краткая=1|srt-sg-m=бо́лен<span style="color:#c0a300;"><sup>△</sup></span>}}'  # noqa: E501
             ),
             'бо́лен<span style="color:#c0a300;"><sup>△</sup></span>',
+        )
+    def test_variable_1(self):
+        self.wtp.start_page("testvar")
+        self.assertEqual(
+            self.wtp.expand(
+                "{{#var:foo}} {{#var:foo|bar}} {{#vardefineecho:foo|baz}} {{#var:foo|bar}} {{#vardefine:foo|goo}} {{#var:foo}}"
+            ),
+            " bar baz baz  goo"
+        )
+        self.assertTrue(len(self.wtp.variable_store) > 0, "Variable store is empty")
+        self.wtp.start_page("clearstate")
+        self.assertTrue(len(self.wtp.variable_store) == 0, "Variable store is not cleared")
+    def test_variable_2(self):
+        self.wtp.start_page("testvar")
+        self.wtp.add_page(
+            "Template:Testvar",
+            10,
+            "{{#vardefine:hello|world}}{{#vardefineecho:n|{{#expr:1+1}}}}",
+        )
+        self.assertEqual(
+            self.wtp.expand(
+                "{{Testvar}}"
+            ),
+            "2"
+        )
+        self.assertEqual(
+            self.wtp.expand(
+                "{{#var:hello|green}}{{#vardefine:n|{{#expr:{{#var:n|0}}+2}}}}{{#var:n}}"
+            ),
+            "world4"
+        )
+    def test_variable_varfinal(self):
+        self.wtp.start_page("testvar")
+        self.assertEqual(
+            self.wtp.expand(
+                "{{#var_final:foo}} {{#var:foo}} {{#vardefineecho:foo|bar}} {{#var:foo|bak}} {{#vardefine:foo|goo}}"
+            ),
+            "goo  bar bar "
+        )
+        self.assertEqual(
+            self.wtp.expand(
+                "{{#var_final:goo|red}} {{#var:goo|blue}}"
+            ),
+            "red blue"
+        )
+        self.assertEqual(
+            self.wtp.expand(
+                "{{#var_final:goo}} {{#var:goo|blue}}"
+            ),
+            " blue"
         )

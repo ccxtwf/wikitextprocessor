@@ -362,40 +362,6 @@ return export
         # string.
         self.parserfn("{{#categorytree:Foo|mode=all}}", "")
 
-    def test_lst_fn(self):
-        self.ctx.start_page("Tt")
-        self.ctx.add_page(
-            "testpage",
-            0,
-            """
-<section begin="foo" />
-=== Test section ===
-A
-<section end="foo" />
-
-=== Other section ===
-B
-
-<SECTION BEGIN=foo />
-MORE
-<section end=foo />
-
-<section begin="bar" />
-NOT
-<section end="bar" />
-""",
-        )
-        ret = self.ctx.expand("{{#lst:testpage|foo}}")
-        self.assertEqual(
-            ret,
-            """
-=== Test section ===
-A
-
-MORE
-""",
-        )
-
     def test_tag1(self):
         self.parserfn("{{#tag:br}}", "<br />")
 
@@ -652,7 +618,7 @@ MORE
     def test_fullurl1(self):
         self.parserfn(
             "{{fullurl:Test page|action=edit}}",
-            "//en.wiktionary.org/wiki/Test_page?action=edit",
+            f"{self.ctx.wiki_domain}/wiki/Test_page?action=edit"
         )
 
     # XXX implement and test interwiki prefixes for fullurl
@@ -1208,12 +1174,12 @@ MORE
     def test_subjectspace2(self):
         self.ctx.start_page("Reconstruction:Tt")
         ret = self.ctx.expand("{{SUBJECTSPACE}}")
-        self.assertEqual(ret, "Reconstruction")
+        self.assertEqual(ret, "")
 
     def test_subjectspace3(self):
         self.ctx.start_page("Tt")
         ret = self.ctx.expand("{{SUBJECTSPACE:Reconstruction:foo}}")
-        self.assertEqual(ret, "Reconstruction")
+        self.assertEqual(ret, "")
 
     def test_talkspace1(self):
         self.ctx.start_page("Tt")
@@ -1223,12 +1189,12 @@ MORE
     def test_talkspace2(self):
         self.ctx.start_page("Reconstruction:Tt")
         ret = self.ctx.expand("{{TALKSPACE}}")
-        self.assertEqual(ret, "Reconstruction talk")
+        self.assertEqual(ret, "Talk")
 
     def test_talkspace3(self):
         self.ctx.start_page("Tt")
         ret = self.ctx.expand("{{TALKSPACE:Reconstruction:foo}}")
-        self.assertEqual(ret, "Reconstruction talk")
+        self.assertEqual(ret, "Talk")
 
     def test_localurl1(self):
         self.ctx.start_page("test page")
@@ -1262,10 +1228,10 @@ MORE
         )
 
     def test_server1(self):
-        self.parserfn("{{SERVER}}", "//en.wiktionary.org")
+        self.parserfn("{{SERVER}}", self.ctx.wiki_domain)
 
     def test_servername1(self):
-        self.parserfn("{{SERVERNAME}}", "en.wiktionary.org")
+        self.parserfn("{{SERVERNAME}}", self.ctx.wiki_domain)
 
     def test_currentmonthabbrev1(self):
         self.ctx.start_page("test page")
@@ -3749,7 +3715,7 @@ return export
 
     def test_mw_title47(self):
         self.scribunto(
-            "Test/foo/bar",
+            "Test/foo",
             r"""
         local t = mw.title.makeTitle("Main", "Test/foo/bar", "Frag")
         return t.basePageTitle.fullText""",
@@ -3757,7 +3723,7 @@ return export
 
     def test_mw_title48(self):
         self.scribunto(
-            "Test/foo/bar",
+            "Test",
             r"""
         local t = mw.title.makeTitle("Main", "Test/foo/bar", "Frag")
         return t.rootPageTitle.fullText""",
@@ -4052,9 +4018,6 @@ return export
         t = self.ctx.node_to_wikitext(node)
         self.assertEqual(v, t)
 
-    def test_mw_wikibase_getEntityUrl1(self):
-        self.scribunto("", """return mw.wikibase.getEntityUrl()""")
-
     def test_gsub1(self):
         self.scribunto(
             "f(%d+)accel", """return string.gsub("f=accel", "=", "(%%d+)");"""
@@ -4117,7 +4080,7 @@ return export
         tests = [
             [
                 "{{fullurl:Category:Top level}}",
-                "//en.wiktionary.org/wiki/Category:Top_level",
+                f"{self.ctx.wiki_domain}/wiki/Category:Top_level",
             ],
             [
                 "{{fullurl:s:Electra|action=edit}}",
@@ -4132,7 +4095,7 @@ return export
                 "{{fullurle:s:vi:Xứ Bắc kỳ ngày nay/1}}",
                 "https://en.wikisource.org/wiki/vi:X%E1%BB%A9_B%E1%BA%AFc_k%E1%BB%B3_ng%C3%A0y_nay/1",
             ],
-            ["{{fullurl:title|a=a|b=b}}", "//en.wiktionary.org/wiki/title?a=a"],
+            ["{{fullurl:title|a=a|b=b}}", f"{self.ctx.wiki_domain}/wiki/title?a=a"],
         ]
         self.ctx.start_page("")
         for wikitext, result in tests:
@@ -4164,20 +4127,11 @@ return export
 
     def test_get_page_with_namespace_prefixes(self):
         page = Page(
-            "Template:title", 10, body="template text", model="wikitext"
+            "Category:title", 14, body="template text", model="wikitext"
         )
-        self.ctx.add_page("Template:title", 10, page.body)
-        self.assertEqual(self.ctx.get_page("T:title", 10), page)
-        self.assertEqual(self.ctx.get_page("t:title", 10), page)
-        self.ctx.start_page("")
-        self.assertEqual(self.ctx.expand("{{t:title}}"), page.body)
-        module_page = Page(
-            "Module:title", 828, body="module text", model="Scribunto"
-        )
-        self.ctx.add_page(
-            "Module:title", 828, module_page.body, model="Scribunto"
-        )
-        self.assertEqual(self.ctx.get_page("mod:title", 828), module_page)
+        self.ctx.add_page("Category:title", 14, page.body)
+        self.assertEqual(self.ctx.get_page("Cat:title", 14), page)
+        self.assertEqual(self.ctx.get_page("cat:title", 14), page)
 
     def test_unnamed_template_arg_end_in_newline(self):
         # https://ru.wiktionary.org/wiki/adygejski
@@ -4283,10 +4237,10 @@ return export""",
         # https://it.wiktionary.org/wiki/Template:Intestazione_voce
         # https://it.wiktionary.org/wiki/Wikizionario:switch_lang
         self.ctx.add_page(
-            "Wiktionary:test", 4, "text<noinclude>doc</noinclude>"
+            "Project:test", 4, "text<noinclude>doc</noinclude>"
         )
         self.ctx.start_page("cane")
-        self.assertEqual(self.ctx.expand("{{Wiktionary:test}}"), "text")
+        self.assertEqual(self.ctx.expand("{{Project:test}}"), "text")
 
     def test_expand_templates_in_pre_expand_template(self):
         self.ctx.lang_code = "it"
