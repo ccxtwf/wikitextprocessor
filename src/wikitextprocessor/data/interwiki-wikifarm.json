@@ -1,0 +1,24 @@
+[
+  {
+    "interwiki": "fandom",
+    "url": "https://$2.fandom.com/wiki/$1",
+    "urlInt": "https://$2.fandom.com/$3/wiki/$1",
+    "baseTrans": true
+  },
+  {
+    "interwiki": "mh",
+    "url": "https://$2.miraheze.org/wiki/$1",
+    "baseTrans": true
+  },
+  {
+    "interwiki": "wt",
+    "url": "https://$2.wikitide.org/wiki/$1",
+    "baseTrans": true
+  },
+  {
+    "interwiki": "wgg",
+    "url": "https://$2.wiki.gg/wiki/$1",
+    "urlInt": "https://$2.wiki.gg/$3/wiki/$1",
+    "baseTrans": true
+  }
+]
