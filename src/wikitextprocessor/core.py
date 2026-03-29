@@ -27,6 +27,11 @@ from typing import (
 
 from requests import Session
 
+from .config import (
+    VLW_LIVE_WIKI_DOMAIN,
+    VLW_API_SCRIPT_PATH,
+    MAX_TEMPLATE_EXPIRATION
+)
 from .common import (
     MAGIC_FIRST,
     MAGIC_LBRACKET_CHAR,
@@ -296,8 +301,8 @@ class Wtp:
         extension_tags: Optional[dict[str, HTMLTagData]] = None,
         parser_function_aliases: dict[str, str] = {},
         quiet: bool = False,
-        wiki_domain: str = "https://vocaloidlyrics.miraheze.org",
-        api_script_path: str = "/w/api.php",
+        wiki_domain: str = VLW_LIVE_WIKI_DOMAIN,
+        api_script_path: str = VLW_API_SCRIPT_PATH,
     ):
         if isinstance(db_path, str):
             self.db_path: Optional[Path] = Path(db_path)
@@ -403,6 +408,12 @@ class Wtp:
         PRIMARY KEY(title, namespace_id));
 
         PRAGMA journal_mode = WAL;
+        """
+        )
+        self.db_conn.executescript(
+            """
+        CREATE TABLE IF NOT EXISTS last_saved (
+        timestamp TEXT);
         """
         )
 
@@ -1075,6 +1086,25 @@ class Wtp:
         """
         self.db_conn.execute(query_str)
         self.db_conn.commit()
+
+    def repopulate_templates(self) -> None:
+        from .wikitemplates import save_templates
+        from .interwiki import init_interwiki_map
+        save_templates(self)
+        init_interwiki_map(self)
+
+    def is_template_store_outdated(self) -> bool:
+        from datetime import datetime
+        ts = self.db_conn.execute("SELECT timestamp FROM last_saved ORDER BY timestamp DESC;").fetchone()
+        if ts is None:
+            return True
+        ts = ts[0]
+        try:
+            ts = datetime.fromisoformat(ts)
+        except:
+            return True
+        delta = datetime.now() - ts
+        return delta.total_seconds() >= MAX_TEMPLATE_EXPIRATION
 
     def set_template_pre_expand(self, name: str) -> None:
         self.db_conn.execute(

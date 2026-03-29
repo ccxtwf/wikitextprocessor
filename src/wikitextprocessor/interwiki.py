@@ -7,6 +7,10 @@ if TYPE_CHECKING:
 def get_interwiki_data(wtp: "Wtp") -> list[dict[str, Union[str, bool]]]:
     import requests
     from .request_utils import get_user_agent
+    from .config import (
+        META_MH_LIVE_WIKI_DOMAIN,
+        META_MH_API_SCRIPT_PATH
+    )
 
     results = []
     params = {  # type: ignore
@@ -18,7 +22,7 @@ def get_interwiki_data(wtp: "Wtp") -> list[dict[str, Union[str, bool]]]:
     }
     headers = {"user-agent": get_user_agent()}
 
-    for url in ["https://meta.miraheze.org/w/api.php", wtp.api_entrypoint]:
+    for url in [f"{META_MH_LIVE_WIKI_DOMAIN}{META_MH_API_SCRIPT_PATH}", wtp.api_entrypoint]:
         r = requests.get(
             url,
             params=params,
@@ -69,7 +73,6 @@ def get_interwiki_map(wtp: "Wtp") -> dict[str, dict[str, Union[str, bool]]]:
             "SELECT * FROM interwiki_maps"
         )
     }
-    print(data)
     return data
 
 
