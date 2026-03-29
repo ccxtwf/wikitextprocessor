@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from .core import Wtp
 
-MAX_WIKI_REQUEST_ATTEMPTS = 3
+from .config import MAX_WIKI_REQUEST_ATTEMPTS
 
 def _fetch_list_of_templates_and_modules(wtp: "Wtp") -> list[int]:
     import requests
