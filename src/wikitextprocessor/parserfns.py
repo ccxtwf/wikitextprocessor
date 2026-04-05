@@ -1703,7 +1703,7 @@ def varfinal_fn(
 def custom_videolink_fn(
     wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
 ) -> str:
-    return "<{{#|" + "|".join(map(str, args)) + "}}>"
+    return "<<{{#|" + "|".join(map(str, args)) + "}}>>"
 
 # This list should include names of predefined parser functions and
 # predefined variables (some of which can take arguments using the same
