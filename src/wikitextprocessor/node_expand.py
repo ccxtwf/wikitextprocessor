@@ -135,33 +135,37 @@ def to_wikitext(
                     parts.append(recurse(x2))
             parts.append("]")
         elif kind == NodeKind.TABLE:
-            parts.append("\n{{| {}\n".format(to_attrs(node)))
+            parts.append("\n{{| {}".format(to_attrs(node)))
             parts.append(recurse(node.children))
             parts.append("\n|}\n")
         elif kind == NodeKind.TABLE_CAPTION:
-            parts.append("\n|+ {}\n".format(to_attrs(node)))
+            parts.append("\n|+ {}".format(to_attrs(node)))
             parts.append(recurse(node.children))
         elif kind == NodeKind.TABLE_ROW:
-            parts.append("\n|- {}\n".format(to_attrs(node)))
+            parts.append("\n|- {}".format(to_attrs(node)))
             parts.append(recurse(node.children))
         elif kind == NodeKind.TABLE_HEADER_CELL:
             if node.attrs:
                 parts.append(
-                    "\n! {} |{}\n".format(
+                    "\n! {} |{}".format(
                         to_attrs(node), recurse(node.children)
-                    )
+                    ).rstrip()  # remove dangling \n
                 )
             else:
-                parts.append("\n!{}\n".format(recurse(node.children)))
+                parts.append(
+                    "\n!{}".format(recurse(node.children)).rstrip()  # remove dangling \n
+                )
         elif kind == NodeKind.TABLE_CELL:
             if node.attrs:
                 parts.append(
-                    "\n| {} |{}\n".format(
+                    "\n| {} |{}".format(
                         to_attrs(node), recurse(node.children)
-                    )
+                    ).rstrip()  # remove dangling \n
                 )
             else:
-                parts.append("\n|{}\n".format(recurse(node.children)))
+                parts.append(
+                    "\n|{}".format(recurse(node.children)).rstrip() # remove dangling \n
+                )
         elif kind == NodeKind.MAGIC_WORD:
             parts.append("\n{}\n".format(node.sarg))
         elif kind == NodeKind.HTML:
