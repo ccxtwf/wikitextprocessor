@@ -28,7 +28,6 @@ from .parserfns import PARSER_FUNCTIONS
 if TYPE_CHECKING:
     from .core import Wtp
 
-
 def set_html_tag_data(ctx: "Wtp") -> dict[str, set[str]]:
     # Set of tags that can be parents of "flow" parents
     html_flow_parents: set[str] = set(
@@ -571,6 +570,20 @@ class WikiNode:
                     continue
                 yield node
 
+    def css_classes(
+        self,
+    ) -> list[str]:
+        if self.kind != NodeKind.HTML:
+            return []
+        classes = re.split(r"\s+", self.attrs.get("class", "").strip())
+        return classes
+
+    def has_css_class(
+        self,
+        css_class: str
+    ) -> bool:
+        return css_class in self.css_classes()
+
 
 # We have many functions that can take any 'level' of a WikiNode tree,
 # which includes lists (and tuples, although that might be rare or even
@@ -586,6 +599,43 @@ GeneralNode = Union[
     tuple[WikiNode, ...],
     list[list[Union[str, WikiNode]]],  # for node largs specifically
 ]
+
+class RefCountersInternal:
+    n: int
+    named: dict[str, int]
+    def __init__(self) -> None:
+        self.n = 0
+        self.named = {}
+
+class RefCounters:
+    def __init__(self) -> None:
+        self._data = defaultdict(lambda: RefCountersInternal())
+    def add(self, node: WikiNode, group: str | None = None, name: str | None = None):
+        # Default group name: "*"
+        group = group or "*"
+        counter: int
+
+        # Case: <ref> or <ref group="any">
+        # Or:
+        # Case: <ref name="foo"> or <ref name="foo" group="any">
+        # This is the first time we've encountered a <ref> with this given name
+        #
+        # Increment counter as normal
+        if name is None or name not in self._data[group].named:
+            self._data[group].n += 1
+            counter = self._data[group].n
+            if name is not None:
+                self._data[group].named[name] = counter
+
+        # Case: <ref name="foo"> or <ref name="foo" group="any">
+        # Since we have seen a <ref> with this name before, we don't increment
+        # the counter
+        else:
+            counter = self._data[group].named[name]
+
+        # Sets the attribute on the wikinode for convenience
+        if isinstance(node, WikiNode):
+            node.attrs["__ref_count"] = str(counter)
 
 TemplateParameters = dict[
     Union[str, int],
@@ -1215,7 +1265,7 @@ def url_fn(ctx: "Wtp", token: str) -> None:
         text_fn(ctx, suffix)
 
 
-def magic_fn(ctx: "Wtp", token: str) -> None:
+def magic_fn(ctx: "Wtp", token: str, ref_counters: RefCounters) -> None:
     """Handler for a magic character used to encode templates, template
     arguments, and parser function calls."""
     # Close lists if at the beginning of a line
@@ -1233,6 +1283,7 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
             process_text(
                 ctx,
                 "&lbrace;&lbrace;" + "&vert;".join(args) + "&rbrace;&rbrace;",
+                ref_counters
             )
             return
         # Template tranclusion or parser function call
@@ -1240,11 +1291,11 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
 
         with ctx.begline_disabled:
             # Process arguments
-            process_text(ctx, args[0])
+            process_text(ctx, args[0], ref_counters)
             for arg in args[1:]:
                 # prevent new lines in template arguments pop parser stack
                 vbar_fn(ctx, "|")
-                process_text(ctx, arg)
+                process_text(ctx, arg, ref_counters)
 
         while True:
             node = ctx.parser_stack[-1]
@@ -1262,6 +1313,7 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
                 "&lbrace;&lbrace;&lbrace;"
                 + "&vert;".join(args)
                 + "&rbrace;&rbrace;&rbrace;",
+                ref_counters
             )
             return
         # Template argument reference
@@ -1269,10 +1321,10 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
 
         # Process arguments
         with ctx.begline_disabled:
-            process_text(ctx, args[0])
+            process_text(ctx, args[0], ref_counters)
             for arg in args[1:]:
                 vbar_fn(ctx, "|")
-                process_text(ctx, arg)
+                process_text(ctx, arg, ref_counters)
 
         while True:
             node = ctx.parser_stack[-1]
@@ -1286,7 +1338,8 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
     elif kind == "L":
         if nowiki:
             process_text(
-                ctx, "&lsqb;&lsqb;" + "&vert;".join(args) + "&rsqb;&rsqb;"
+                ctx, "&lsqb;&lsqb;" + "&vert;".join(args) + "&rsqb;&rsqb;",
+                ref_counters
             )
             return
         # Link to another page
@@ -1294,10 +1347,10 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
 
         # Process arguments
         with ctx.begline_disabled:
-            process_text(ctx, args[0])
+            process_text(ctx, args[0], ref_counters)
             for arg in args[1:]:
                 vbar_fn(ctx, "|")
-                process_text(ctx, arg)
+                process_text(ctx, arg, ref_counters)
 
         while True:
             node = ctx.parser_stack[-1]
@@ -1315,10 +1368,10 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
 
             # Process arguments
             with ctx.begline_disabled:
-                process_text(ctx, args[0])
+                process_text(ctx, args[0], ref_counters)
                 for arg in args[1:]:
                     vbar_fn(ctx, "|")
-                    process_text(ctx, arg)
+                    process_text(ctx, arg, ref_counters)
 
             # The URL could have been popped if the content does not look like
             # a URL.
@@ -1336,7 +1389,7 @@ def magic_fn(ctx: "Wtp", token: str) -> None:
                         break
                     _parser_pop(ctx, True)
         else:
-            process_text(ctx, "[" + "&vert;".join(args) + "]")
+            process_text(ctx, "[" + "&vert;".join(args) + "]", ref_counters)
     elif kind == "N":  # Nowiki
         # Replace nowiki by the escaped versions here
         text = nowiki_quote(args[0])
@@ -1885,7 +1938,7 @@ def parse_attrs(node: WikiNode, attrs: str) -> None:
         node.attrs[name] = value
 
 
-def tag_fn(ctx: "Wtp", token: str) -> None:
+def tag_fn(ctx: "Wtp", token: str, ref_counters: RefCounters) -> None:
     """Handler function for tokens that look like HTML tags and their end
     tags.  This includes various built-in tags that aren't actually
     HTML.  Some WikiText tags that resemble HTML are described as HTML
@@ -2028,6 +2081,13 @@ def tag_fn(ctx: "Wtp", token: str) -> None:
         node = _parser_push(ctx, NodeKind.HTML)
         node.sarg = name
         parse_attrs(node, attrs)
+        if name == "ref":
+            # this adds a "__ref_count" attribute onto the wikinode
+            ref_counters.add(
+                node=node,
+                group=node.attrs.get("group", None),
+                name=node.attrs.get("name", None)
+            )
 
         # If the tag contains a trailing slash or it is an empty tag,
         # close it immediately.
@@ -2384,7 +2444,7 @@ def token_iter(ctx: "Wtp", text: str) -> Iterator[tuple[bool, str]]:
                 yield False, part[pos:]
 
 
-def process_text(ctx: "Wtp", text: str) -> None:
+def process_text(ctx: "Wtp", text: str, ref_counters: RefCounters) -> None:
     """Tokenizes ``text`` and processes each token in sequence.  This can be
     called recursively (which we do to process tokens inside templates and
     certain other structures)."""
@@ -2414,7 +2474,7 @@ def process_text(ctx: "Wtp", text: str) -> None:
             elif token.startswith(">="):  # Note: > added by tokenizer
                 subtitle_end_fn(ctx, token)
             elif token.startswith("<"):  # HTML tag like construct
-                tag_fn(ctx, token)
+                tag_fn(ctx, token, ref_counters)
             elif token.startswith("----") and ctx.beginning_of_line:
                 hline_fn(ctx, token)
             elif re.match(list_prefix_re, token):
@@ -2426,7 +2486,7 @@ def process_text(ctx: "Wtp", text: str) -> None:
                 and ord(token) >= MAGIC_FIRST
                 and ord(token) <= MAGIC_LAST
             ):
-                magic_fn(ctx, token)
+                magic_fn(ctx, token, ref_counters)
             else:
                 t2 = token.strip()
                 if t2 in tokenops:
@@ -2452,9 +2512,12 @@ def parse_encoded(ctx: "Wtp", text: str) -> WikiNode:
     ctx.parser_stack = [node]
     ctx.suppress_special = False
 
+    # Keep track of <ref> counts
+    ref_counters = RefCounters()
+
     try:
         # Process all tokens from the input.
-        process_text(ctx, text)
+        process_text(ctx, text, ref_counters)
         # We are at the end of the text.  Keep popping stack until we only have
         # the root node left.  This is used to finalize processing any nodes
         # on the stack.
