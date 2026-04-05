@@ -101,7 +101,9 @@ ALLOWED_HTML_TAGS: dict[str, HTMLTagData] = {
     },
     "math": {"parents": ["phrasing"], "content": ["phrasing"]},
     "mark": {"parents": ["phrasing"], "content": ["phrasing"]},
+    "mobileonly": {"parents": ["*"], "content": ["*"]},
     "noinclude": {"parents": ["*"], "content": ["*"]},
+    "nomobile": {"parents": ["*"], "content": ["*"]},
     "ol": {"parents": ["flow"], "content": ["flow"]},
     "onlyinclude": {"parents": ["*"], "content": ["*"]},
     "p": {
@@ -135,6 +137,7 @@ ALLOWED_HTML_TAGS: dict[str, HTMLTagData] = {
         ],
         "content": ["phrasing"],
     },
+    "poem": {"parents": ["flow"], "content": ["flow"]},
     "q": {"parents": ["phrasing"], "content": ["phrasing"]},
     "rb": {
         "parents": ["ruby"],
