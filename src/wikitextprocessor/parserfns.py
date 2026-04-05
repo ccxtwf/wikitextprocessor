@@ -1436,7 +1436,7 @@ def shortdesc_fn(
 def unimplemented_fn(
     ctx: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
 ) -> str:
-    ctx.error(
+    ctx.debug(
         "unimplemented parserfn {}".format(fn_name), sortid="parserfns/1191"
     )
     return "{{" + fn_name + ":" + "|".join(map(str, args)) + "}}"
@@ -1876,7 +1876,7 @@ def call_parser_function(
     assert isinstance(args, (list, tuple, dict))
     assert callable(expander)
     if fn_name not in PARSER_FUNCTIONS:
-        ctx.error(
+        ctx.debug(
             "unrecognized parser function {!r}".format(fn_name),
             sortid="parserfns/1354",
         )

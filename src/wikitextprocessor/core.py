@@ -541,7 +541,7 @@ class Wtp:
             msg += " parsing " + "/".join(titles)
         if trace:
             msg += "\n" + trace
-        print("{}: {}: {}".format(loc, kind, msg))
+        logger.log(level=logging.__dict__[kind], msg="{}: {}".format(loc, msg))
         sys.stdout.flush()
 
     def error(

@@ -64,7 +64,8 @@ function mw_meta.__index(table, key)
 end
 
 function mw.addWarning(text)
-    print("mw.addWarning", text)
+    --print("mw.addWarning", text)
+    mw_log_warning_python(text)
 end
 
 function mw.allToString(...)

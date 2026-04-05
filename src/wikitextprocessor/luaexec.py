@@ -265,6 +265,10 @@ def mw_language_format_date_python(
     else:
         return format_with_wiki_timeformat(ctx, datetime.now(), fmt)
 
+def mw_log_warning_python(
+    ctx: "Wtp", msg: str
+) -> None:
+    ctx.debug(f"mw.addWarning {msg}")
 
 def call_set_functions(
     ctx: "Wtp", set_functions: Callable[["_LuaTable"], None]
@@ -291,6 +295,9 @@ def call_set_functions(
                 "mw_site_interwikiMap_py": partial(mw_site_interwikiMap, ctx),
                 "mw_language_format_date_python": partial(
                     mw_language_format_date_python, ctx
+                ),
+                "mw_log_warning_python": partial(
+                    mw_log_warning_python, ctx
                 ),
                 "variables_lua_var": partial(
                     variables_lua_var, ctx
