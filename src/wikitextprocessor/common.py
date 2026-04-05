@@ -104,3 +104,9 @@ def add_newline_to_expansion(text: str) -> str:
     if isinstance(text, str) and text.startswith(("*", ";", ":", "#", "{|")):
         return "\n" + text
     return text
+
+def standardize_name(name: str) -> str:
+    name = name.strip()
+    name = re.sub(r"[ _]+", " ", name)
+    name = name[0].upper() + name[1:]
+    return name

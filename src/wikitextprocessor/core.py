@@ -42,6 +42,7 @@ from .common import (
     URL_STARTS,
     add_newline_to_expansion,
     nowiki_quote,
+    standardize_name,
 )
 from .logging_utils import logger
 from .luaexec import call_lua_sandbox
@@ -1868,6 +1869,8 @@ class Wtp:
         expand_names: Optional[Set[str]] = None,
         not_expand_names: Optional[Set[str]] = None,
     ) -> bool:
+        name = standardize_name(name)
+
         page = self.get_page(name, self.NAMESPACE_DATA["Template"]["id"])
         if page is None:
             return False
