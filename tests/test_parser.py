@@ -3421,6 +3421,55 @@ http://purl.uni-rostock.de/demel/d00649426</ref>"""
         self.assertEqual(header.kind, NodeKind.TABLE_HEADER_CELL)
         self.assertEqual(header.children, [" Header A\n"])
 
+    def test_ref_1(self):
+        self.ctx.start_page("testref")
+        root = self.ctx.parse("""== Section ==
+Some text here, cited by some note here<ref>this is a reference</ref>. Hereon, we make some more noise, and now we have another note here<ref>yet another note. whodathunk</ref>. Okay, so maybe we 're going to be here for a little longer. Let's put a pin on that<ref name="pin">wwww :P</ref>. I'm bored now. What's that about a scene? Going back to the last point I made<ref name="pin" />. Hey... what are we talking here?<ref>this is getting tiring...</ref>. Welp whoopadoo. Let's check back on the last pin.<ref name="pin" />
+""")
+        refs = list(root.find_html_recursively(target_tag="ref"))
+        self.assertEqual(len(refs), 6)
+        expected_nodes = [
+            ( 0, "this is a reference", "1" ),
+            ( 1, "yet another note. whodathunk", "2" ),
+            ( 2, "wwww :P", "3" ),
+            ( 3, "", "3" ),
+            ( 4, "this is getting tiring...", "4" ),
+            ( 5, "", "3" )
+        ]
+        for ref_idx, expected_ref_text, expected_ref_counter in expected_nodes:
+            c_node = WikiNode(kind=NodeKind.ROOT, loc=0)
+            c_node.children = refs[ref_idx].children
+            text_contents = self.ctx.node_to_wikitext(c_node)
+            self.assertEqual(text_contents, expected_ref_text)
+            self.assertEqual(refs[ref_idx].attrs.get("__ref_count", None), expected_ref_counter)
+        for ref_idx in (2, 3, 5):
+            self.assertEqual(refs[ref_idx].attrs.get("name", None), "pin")
+
+    def test_ref_2(self):
+        self.ctx.start_page("testref")
+        root = self.ctx.parse("""== Section ==
+abcdef<ref group="forma-1">[https://en.wikipedia.org wikipedia] link</ref>. 123456<ref group="forma-2">some link on group 2</ref>. Circling back<ref group="forma-1" name="foo">put a pin on it</ref>. Peel it back<ref group="forma-2" name="foo">this is another pin</ref>. Ah hell, we're going to be on it for a while. Let's check back.<ref group="forma-1" name="foo" /><ref group="forma-2" name="foo" />
+""")
+        refs = list(root.find_html_recursively(target_tag="ref"))
+        self.assertEqual(len(refs), 6)
+        expected_nodes = [
+            ( 0, "[https://en.wikipedia.org wikipedia] link", "1", "forma-1" ),
+            ( 1, "some link on group 2", "1", "forma-2" ),
+            ( 2, "put a pin on it", "2", "forma-1" ),
+            ( 3, "this is another pin", "2", "forma-2" ),
+            ( 4, "", "2", "forma-1" ),
+            ( 5, "", "2", "forma-2" ),
+        ]
+        for ref_idx, expected_ref_text, expected_ref_counter, expected_ref_group in expected_nodes:
+            c_node = WikiNode(kind=NodeKind.ROOT, loc=0)
+            c_node.children = refs[ref_idx].children
+            text_contents = self.ctx.node_to_wikitext(c_node)
+            self.assertEqual(text_contents, expected_ref_text)
+            self.assertEqual(refs[ref_idx].attrs.get("group", None), expected_ref_group)
+            self.assertEqual(refs[ref_idx].attrs.get("__ref_count", None), expected_ref_counter)
+        for ref_idx in (2, 3, 4, 5):
+            self.assertEqual(refs[ref_idx].attrs.get("name", None), "foo")
+
 
 # XXX implement <nowiki/> marking for links, templates
 #  - https://en.wikipedia.org/wiki/Help:Wikitext#Nowiki
