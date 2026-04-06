@@ -1697,8 +1697,10 @@ def varfinal_fn(
     # https://www.mediawiki.org/wiki/Extension:Variables
     if len(args) == 0:
         return "{{" + fn_name + "}}"
-    wtp.replace_varfinal.add(args[0])
-    return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
+    vname = expander(args[0])
+    placeholder = expander(args[1]) if len(args) > 1 else None
+    wtp.replace_varfinal.add(vname)
+    return "{{" + f"{fn_name}:{vname}{("|" + placeholder) if placeholder is not None else ""}" + "}}"
 
 def custom_videolink_fn(
     wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
