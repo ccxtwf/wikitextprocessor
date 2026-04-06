@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import dateparser
 
+from .config import ParserFunctionConfig
 from .common import MAGIC_NOWIKI_CHAR, add_newline_to_expansion, nowiki_quote
 from .interwiki import get_interwiki_map
 
@@ -1707,6 +1708,65 @@ def custom_videolink_fn(
 ) -> str:
     return "<<{{#|" + "|".join(map(str, args)) + "}}>>"
 
+def while_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    if len(args) < 3:
+        wtp.error("#while needs at least 3 arguments")
+        return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
+    sb: list[str] = []
+    _, cond_expr, exec_block, *__ = args
+    while len(expander(cond_expr).strip()) > 0:
+        wtp.loops_iter_count += 1
+        sb.append(expander(exec_block))
+        if wtp.loops_iter_count >= ParserFunctionConfig["MAX_LOOPS_ITER"]:
+            msg = f"Exceeded $egLoopsCountLimit limit of {ParserFunctionConfig["MAX_LOOPS_ITER"]}"
+            wtp.error(msg)
+            sb.append(f"<span class=\"error\">{msg}</span>")
+            break
+    return "".join(sb)
+
+def dowhile_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    if len(args) < 2:
+        wtp.error("#dowhile needs at least 2 arguments")
+        return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
+    sb: list[str] = []
+    _, cond_expr, exec_block, *__ = args
+    while True:
+        wtp.loops_iter_count += 1
+        sb.append(expander(exec_block))
+        if len(expander(cond_expr).strip()) == 0:
+            break
+        if wtp.loops_iter_count >= ParserFunctionConfig["MAX_LOOPS_ITER"]:
+            msg = f"Exceeded $egLoopsCountLimit limit of {ParserFunctionConfig["MAX_LOOPS_ITER"]}"
+            wtp.error(msg)
+            sb.append(f"<span class=\"error\">{msg}</span>")
+            break
+    return "".join(sb)
+
+def loop_fn(
+    wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
+) -> str:
+    if len(args) < 4:
+        wtp.error("#loop needs at least 4 arguments")
+        return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
+    sb: list[str] = []
+    vname, init, n_loops, expr, *_ = args
+    init = init.strip()
+    n_loops = n_loops.strip()
+    if not init.isnumeric() or not n_loops.isnumeric():
+        wtp.error("Starting value and number of loops of #loop must be numeric")
+        return "{{" + f"{fn_name}:{args[0]}{("|" + args[1]) if len(args) > 1 else ""}" + "}}"
+    init, n_loops = int(init), int(n_loops)
+    vardefine_fn(wtp, "var", [vname, str(init)], expander)
+    for _ in range(n_loops):
+        sb.append(expander(expr))
+        init += 1
+        vardefine_fn(wtp, "var", [vname, str(init)], expander)
+    return "".join(sb)
+
 # This list should include names of predefined parser functions and
 # predefined variables (some of which can take arguments using the same
 # syntax as parser functions and we treat them as parser functions).
@@ -1855,6 +1915,12 @@ PARSER_FUNCTIONS = {
     "#vardefineecho": vardefineecho_fn,
     "#varexists": varexists_fn,
     "#var final": varfinal_fn,
+    # Extension:Loops
+    "#loop": loop_fn,
+    "#while": while_fn,
+    "#dowhile": dowhile_fn,
+    "#forargs": unimplemented_fn,
+    "#fornumargs": unimplemented_fn,
     # Extension:WikiSEO
     "#seo": unimplemented_fn,
     # Extension:EmbedVideo

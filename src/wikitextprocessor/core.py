@@ -30,7 +30,7 @@ from requests import Session
 from .config import (
     VLW_LIVE_WIKI_DOMAIN,
     VLW_API_SCRIPT_PATH,
-    MAX_TEMPLATE_EXPIRATION
+    MAX_TEMPLATE_EXPIRATION,
 )
 from .common import (
     MAGIC_FIRST,
@@ -292,6 +292,7 @@ class Wtp:
         "api_script_path",
         "variable_store", # simulate Extension:Variables
         "replace_varfinal", # simulate Extension:Variables
+        "loops_iter_count", # simulate Extension:Loops
     )
 
     def __init__(
@@ -353,6 +354,7 @@ class Wtp:
         self.api_script_path: str = api_script_path
         self.variable_store: dict[str, str] = defaultdict(None)
         self.replace_varfinal: set[str] = set()
+        self.loops_iter_count: int = 0
 
         if extension_tags is not None:
             self.allowed_html_tags.update(extension_tags)

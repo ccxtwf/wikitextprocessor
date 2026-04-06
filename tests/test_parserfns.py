@@ -156,19 +156,24 @@ class TestParserFunctions(TestCase):
             ),
             'бо́лен<span style="color:#c0a300;"><sup>△</sup></span>',
         )
+
     def test_variable_1(self):
         self.wtp.start_page("testvar")
+        # Assert simple variable usage is possible
         self.assertEqual(
             self.wtp.expand(
                 "{{#var:foo}} {{#var:foo|bar}} {{#vardefineecho:foo|baz}} {{#var:foo|bar}} {{#vardefine:foo|goo}} {{#var:foo}}"
             ),
             " bar baz baz  goo"
         )
+        # Assert variable store is not cleared until a page is restarted
         self.assertTrue(len(self.wtp.variable_store) > 0, "Variable store is empty")
         self.wtp.start_page("clearstate")
         self.assertTrue(len(self.wtp.variable_store) == 0, "Variable store is not cleared")
+
     def test_variable_2(self):
         self.wtp.start_page("testvar")
+        # Assert simple variable usage in template transclusions is possible
         self.wtp.add_page(
             "Template:Testvar",
             10,
@@ -180,29 +185,111 @@ class TestParserFunctions(TestCase):
             ),
             "2"
         )
-        self.assertEqual(
-            self.wtp.expand(
-                "{{#var:hello|green}}{{#vardefine:n|{{#expr:{{#var:n|0}}+2}}}}{{#var:n}}"
+        # Assert variable store is not cleared until a page is restarted
+        self.assertTrue(len(self.wtp.variable_store) > 0, "Variable store is empty")
+
+    def test_variable_3(self):
+        test_cases = [
+            # assert that expansion in parser func arguments works correctly
+            (
+                "{{#var:foo1|{{#expr: 0 - 1 }}}} {{#vardefine:foo1|{{#expr: 1 + 1 }}}} {{#var:foo1|{{#expr: 0 - 1 }}}} {{#vardefineecho:foo2|{{#expr: 2 + 3 }}}}",
+                "-1  2 5"
             ),
-            "world4"
-        )
+            (
+                "{{#vardefine:i|1}}{{#var:foo{{#var:i}}|{{#expr: 0 - 1 }}}} {{#vardefine:foo1|{{#expr: 1 + 1 }}}} {{#var:foo{{#var:i}}|{{#expr: 0 - 1 }}}} {{#vardefineecho:foo{{#expr:1+1}}|{{#expr: 2 + 3 }}}}",
+                "-1  2 5"
+            ),
+
+            # assert that whitespace does not affect expansion in parser func arguments
+            (
+                "{{#var: foo1\n|{{#expr: 0 - 1 }}}} {{#vardefine: foo1\n|{{#expr: 1 + 1 }}}} {{#var: foo1\n|{{#expr: 0 - 1 }}}} {{#vardefineecho: foo2\n|{{#expr: 2 + 3 }}}}",
+                "-1  2 5"
+            ),
+
+            # Extra tests
+            (
+                "{{#vardefine:n|{{#expr:{{#var:n|0}}+2}}}}{{#var:n}}",
+                "2"
+            ),
+            (
+                "{{#vardefine:foo1|{{#expr:1+1}}}}{{#vardefine:foo{{#var:foo1}}|world{{#expr:2+3}}}}foo{{#var:foo1}}={{#var:foo{{#var:foo1}}}}",
+                "foo2=world5"
+            )
+        ]
+        for wikitext, result in test_cases:
+            self.wtp.start_page("testvar")
+            assert(len(self.wtp.variable_store) == 0)
+            with self.subTest(wikitext=wikitext, result=result):
+                self.assertEqual(self.wtp.expand(wikitext), result)
+
     def test_variable_varfinal(self):
-        self.wtp.start_page("testvar")
+        test_cases = [
+            (
+                "{{#var_final:foo}} {{#var:foo}} {{#vardefineecho:foo|bar}} {{#var:foo|bak}} {{#vardefine:foo|goo}}",
+                "goo  bar bar "
+            ),
+            (
+                "{{#var_final:foo}} {{#var:foo}} {{#vardefineecho:foo|{{#expr:1+3}}}} {{#var:foo|{{#expr:2+4}}}} {{#vardefine:foo|{{#expr:3+6}}}}",
+                "9  4 4 "
+            ),
+            (
+                "{{#var_final:goo|red}} {{#var:goo|blue}}",
+                "red blue"
+            ),
+            (
+                "{{#var_final:goo|{{#expr: 20 + 1 }}}} {{#var:goo|blue}}",
+                "21 blue"
+            ),
+            (
+                "{{#var_final:goo}} {{#var:goo|blue}}",
+                " blue"
+            )
+        ]
+        for wikitext, result in test_cases:
+            self.wtp.start_page("testvar")
+            assert(len(self.wtp.variable_store) == 0)
+            with self.subTest(wikitext=wikitext, result=result):
+                self.assertEqual(self.wtp.expand(wikitext), result)
+
+    def test_loops_while(self):
+        test_cases = [
+            (
+                "{{#vardefine:i|0}}{{#while:|{{#ifexpr:{{#var:i}} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }}}}}}",
+                "<nowiki />\n* 0<nowiki />\n* 1<nowiki />\n* 2<nowiki />\n* 3<nowiki />\n* 4"
+            ),
+            (
+                "{{#vardefine:i|6}}{{#while:|{{#ifexpr:{{#var:i}} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }}}}}}",
+                ""
+            )
+        ]
+        for wikitext, result in test_cases:
+            self.wtp.start_page("testwhile")
+            assert(len(self.wtp.variable_store) == 0)
+            with self.subTest(wikitext=wikitext, result=result):
+                self.assertEqual(self.wtp.expand(wikitext), result)
+
+    def test_loops_dowhile(self):
+        test_cases = [
+            (
+                "{{#vardefine:i|0}}{{#dowhile:|{{#ifexpr:{{#var:i}} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }}}}}}",
+                "<nowiki />\n* 0<nowiki />\n* 1<nowiki />\n* 2<nowiki />\n* 3<nowiki />\n* 4"
+            ),
+            (
+                "{{#vardefine:i|5}}{{#dowhile:|{{#ifexpr:{{#var:i}} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }}}}}}",
+                "<nowiki />\n* 5"
+            )
+        ]
+        for wikitext, result in test_cases:
+            self.wtp.start_page("testdowhile")
+            assert(len(self.wtp.variable_store) == 0)
+            with self.subTest(wikitext=wikitext, result=result):
+                self.assertEqual(self.wtp.expand(wikitext), result)
+
+    def test_loops_loop(self):
+        self.wtp.start_page("testdowhile")
         self.assertEqual(
             self.wtp.expand(
-                "{{#var_final:foo}} {{#var:foo}} {{#vardefineecho:foo|bar}} {{#var:foo|bak}} {{#vardefine:foo|goo}}"
+                "{{#loop: varname\n | 4\n | 4\n | <nowiki />\n* This is round {{#var: varname }} and we have {{#expr: 7 - {{#var: varname }} }} more to go\n}}"
             ),
-            "goo  bar bar "
-        )
-        self.assertEqual(
-            self.wtp.expand(
-                "{{#var_final:goo|red}} {{#var:goo|blue}}"
-            ),
-            "red blue"
-        )
-        self.assertEqual(
-            self.wtp.expand(
-                "{{#var_final:goo}} {{#var:goo|blue}}"
-            ),
-            " blue"
+            " <nowiki />\n* This is round 4 and we have 3 more to go\n <nowiki />\n* This is round 5 and we have 2 more to go\n <nowiki />\n* This is round 6 and we have 1 more to go\n <nowiki />\n* This is round 7 and we have 0 more to go\n"
         )
