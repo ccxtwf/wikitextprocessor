@@ -151,19 +151,19 @@ class NodeExpTests(unittest.TestCase):
     #     self.backcvt("{| |}", "\n{| \n\n|}\n")
 
     def test_table2(self):
-        self.backcvt('{| class="x"\n|}', '\n{| class="x"\n\n|}\n')
+        self.backcvt('{| class="x"\n|}', '\n{| class="x"\n|}\n')
 
     def test_tablecaption1(self):
-        self.backcvt("{|\n|+\ncapt\n|}", "\n{| \n\n|+ \n\ncapt\n\n|}\n")
+        self.backcvt("{|\n|+\ncapt\n|}", "\n{| \n|+ \ncapt\n|}\n")
 
     def test_tablerowcell1(self):
         self.backcvt(
-            "{|\n|- a=1\n| cell\n|}", '\n{| \n\n|- a="1"\n\n| cell\n\n\n|}\n'
+            "{|\n|- a=1\n| cell\n|}", '\n{| \n|- a="1"\n| cell\n|}\n'
         )
 
     def test_tablerowhdr1(self):
         self.backcvt(
-            "{|\n|- a=1\n! cell\n|}", '\n{| \n\n|- a="1"\n\n! cell\n\n\n|}\n'
+            "{|\n|- a=1\n! cell\n|}", '\n{| \n|- a="1"\n! cell\n|}\n'
         )
 
     def test_magicword1(self):
