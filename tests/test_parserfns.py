@@ -177,7 +177,7 @@ class TestParserFunctions(TestCase):
         self.wtp.add_page(
             "Template:Testvar",
             10,
-            "{{#vardefine:hello|world}}{{#vardefineecho:n|{{#expr:1+1}}}}",
+            "{{#vardefine:hello|world}}{{#vardefineecho:n| {{#expr: 1 + 1 }} }}",
         )
         self.assertEqual(
             self.wtp.expand(
@@ -192,7 +192,7 @@ class TestParserFunctions(TestCase):
         test_cases = [
             # assert that expansion in parser func arguments works correctly
             (
-                "{{#var:foo1|{{#expr: 0 - 1 }}}} {{#vardefine:foo1|{{#expr: 1 + 1 }}}} {{#var:foo1|{{#expr: 0 - 1 }}}} {{#vardefineecho:foo2|{{#expr: 2 + 3 }}}}",
+                "{{#var:foo1| {{#expr: 0 - 1 }} }} {{#vardefine:foo1| {{#expr: 1 + 1 }} }} {{#var:foo1| {{#expr: 0 - 1 }} }} {{#vardefineecho:foo2| {{#expr: 2 + 3 }} }}",
                 "-1  2 5"
             ),
             (
@@ -271,11 +271,11 @@ class TestParserFunctions(TestCase):
     def test_loops_dowhile(self):
         test_cases = [
             (
-                "{{#vardefine:i|0}}{{#dowhile:|{{#ifexpr:{{#var:i}} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }}}}}}",
+                "{{#vardefine:i|0}}{{#dowhile:|{{#ifexpr: {{#var: i }} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }} }}}}",
                 "<nowiki />\n* 0<nowiki />\n* 1<nowiki />\n* 2<nowiki />\n* 3<nowiki />\n* 4"
             ),
             (
-                "{{#vardefine:i|5}}{{#dowhile:|{{#ifexpr:{{#var:i}} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i|{{#expr: {{#var:i}} + 1 }}}}}}",
+                "{{#vardefine:i|5}}{{#dowhile:|{{#ifexpr:{{#var: i }} < 5|true}}|<nowiki />\n* {{#var:i}}{{#vardefine:i| {{#expr: {{#var:i}} + 1 }} }}}}",
                 "<nowiki />\n* 5"
             )
         ]
@@ -291,5 +291,5 @@ class TestParserFunctions(TestCase):
             self.wtp.expand(
                 "{{#loop: varname\n | 4\n | 4\n | <nowiki />\n* This is round {{#var: varname }} and we have {{#expr: 7 - {{#var: varname }} }} more to go\n}}"
             ),
-            " <nowiki />\n* This is round 4 and we have 3 more to go\n <nowiki />\n* This is round 5 and we have 2 more to go\n <nowiki />\n* This is round 6 and we have 1 more to go\n <nowiki />\n* This is round 7 and we have 0 more to go\n"
+            "<nowiki />\n* This is round 4 and we have 3 more to go<nowiki />\n* This is round 5 and we have 2 more to go<nowiki />\n* This is round 6 and we have 1 more to go<nowiki />\n* This is round 7 and we have 0 more to go"
         )

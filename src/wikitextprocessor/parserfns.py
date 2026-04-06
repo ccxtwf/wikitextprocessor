@@ -1651,22 +1651,19 @@ def var_fn(
     # https://www.mediawiki.org/wiki/Extension:Variables
     if len(args) == 0:
         return "{{" + fn_name + "}}"
-    vname = args[0]
+    vname = expander(args[0]).strip()
     v = wtp.variable_store.get(vname, None)
     if v is not None:
         return v
     if len(args) > 1:
-        return expander(args[1])
+        return expander(args[1]).strip()
     return ""
 
 def vardefine_fn(
     wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
 ) -> str:
     # https://www.mediawiki.org/wiki/Extension:Variables
-    if len(args) == 0:
-        return "{{" + fn_name + "}}"
-    vname = args[0]
-    wtp.variable_store[vname] = expander(args[1]) if len(args) > 1 else ""
+    vardefineecho_fn(wtp, fn_name, args, expander)
     return ""
 
 def vardefineecho_fn(
@@ -1675,8 +1672,8 @@ def vardefineecho_fn(
     # https://www.mediawiki.org/wiki/Extension:Variables
     if len(args) == 0:
         return "{{" + fn_name + "}}"
-    vname = args[0]
-    wtp.variable_store[vname] = expander(args[1]) if len(args) > 1 else ""
+    vname = expander(args[0]).strip()
+    wtp.variable_store[vname] = expander(args[1]).strip() if len(args) > 1 else ""
     return wtp.variable_store[vname]
 
 def varexists_fn(
@@ -1685,12 +1682,12 @@ def varexists_fn(
     # https://www.mediawiki.org/wiki/Extension:Variables
     if len(args) == 0:
         return "{{" + fn_name + "}}"
-    vname = args[0]
+    vname = expander(args[0]).strip()
     has_var = vname in wtp.variable_store
     if len(args) == 1:
         return "1" if has_var else ""
     a, b = args[1], args[2] if len(args) >= 2 else ""
-    return expander(a) if has_var else expander(b)
+    return expander(a).strip() if has_var else expander(b).strip()
 
 def varfinal_fn(
     wtp: "Wtp", fn_name: str, args: list[str], expander: Callable[[str], str]
@@ -1698,8 +1695,8 @@ def varfinal_fn(
     # https://www.mediawiki.org/wiki/Extension:Variables
     if len(args) == 0:
         return "{{" + fn_name + "}}"
-    vname = expander(args[0])
-    placeholder = expander(args[1]) if len(args) > 1 else None
+    vname = expander(args[0]).strip()
+    placeholder = expander(args[1]).strip() if len(args) > 1 else None
     wtp.replace_varfinal.add(vname)
     return "{{" + f"{fn_name}:{vname}{("|" + placeholder) if placeholder is not None else ""}" + "}}"
 
@@ -1718,7 +1715,7 @@ def while_fn(
     _, cond_expr, exec_block, *__ = args
     while len(expander(cond_expr).strip()) > 0:
         wtp.loops_iter_count += 1
-        sb.append(expander(exec_block))
+        sb.append(expander(exec_block).strip())
         if wtp.loops_iter_count >= ParserFunctionConfig["MAX_LOOPS_ITER"]:
             msg = f"Exceeded $egLoopsCountLimit limit of {ParserFunctionConfig["MAX_LOOPS_ITER"]}"
             wtp.error(msg)
@@ -1736,7 +1733,7 @@ def dowhile_fn(
     _, cond_expr, exec_block, *__ = args
     while True:
         wtp.loops_iter_count += 1
-        sb.append(expander(exec_block))
+        sb.append(expander(exec_block).strip())
         if len(expander(cond_expr).strip()) == 0:
             break
         if wtp.loops_iter_count >= ParserFunctionConfig["MAX_LOOPS_ITER"]:
@@ -1762,7 +1759,7 @@ def loop_fn(
     init, n_loops = int(init), int(n_loops)
     vardefine_fn(wtp, "var", [vname, str(init)], expander)
     for _ in range(n_loops):
-        sb.append(expander(expr))
+        sb.append(expander(expr).strip())
         init += 1
         vardefine_fn(wtp, "var", [vname, str(init)], expander)
     return "".join(sb)
