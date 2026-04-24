@@ -369,8 +369,7 @@ class Wtp:
         )
         self.inside_html_tags_re: re.Pattern = set_inside_html_tags_re(self)
         self.parser_function_aliases = parser_function_aliases
-        if not quiet:
-            logger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.INFO if quiet else logging.DEBUG)
         self.wikidata_session: Session | None = None
         # Default regex pattern, will sometimes cause trouble.
         # Linktrailing is when you have [[a li]]nk that consumes the
@@ -521,7 +520,7 @@ class Wtp:
         assert isinstance(kind, str)
         assert isinstance(msg, str)
         assert isinstance(trace, (str, type(None)))
-        loc = self.title or "ERROR_TITLE"
+        loc = self.title or "##UNSET TITLE##"
         if self.section is not None:
             loc += "/" + self.section
         if self.subsection is not None:
@@ -563,7 +562,7 @@ class Wtp:
             {
                 "msg": msg,
                 "trace": trace or "",
-                "title": self.title or "ERROR_TITLE",
+                "title": self.title or "##UNSET TITLE##",
                 "section": self.section or "",
                 "subsection": self.subsection or "",
                 "called_from": sortid,
@@ -585,7 +584,7 @@ class Wtp:
             {
                 "msg": msg,
                 "trace": trace or "",
-                "title": self.title or "ERROR_TITLE",
+                "title": self.title or "##UNSET TITLE##",
                 "section": self.section or "",
                 "subsection": self.subsection or "",
                 "called_from": sortid,
@@ -607,7 +606,7 @@ class Wtp:
             {
                 "msg": msg,
                 "trace": trace or "",
-                "title": self.title or "ERROR_TITLE",
+                "title": self.title or "##UNSET TITLE##",
                 "section": self.section or "",
                 "subsection": self.subsection or "",
                 "called_from": sortid,
@@ -629,14 +628,14 @@ class Wtp:
             {
                 "msg": msg,
                 "trace": trace or "",
-                "title": self.title or "ERROR_TITLE",
+                "title": self.title or "##UNSET TITLE##",
                 "section": self.section or "",
                 "subsection": self.subsection or "",
                 "called_from": sortid,
                 "path": tuple(self.expand_stack),
             }
         )
-        self._fmt_errmsg("NOTE", msg, trace)
+        self._fmt_errmsg("INFO", msg, trace)
 
     def wiki_notice(
         self, msg: str, trace: Optional[str] = None, sortid="XYZunsorted"
@@ -651,14 +650,14 @@ class Wtp:
             {
                 "msg": msg,
                 "trace": trace or "",
-                "title": self.title or "ERROR_TITLE",
+                "title": self.title or "##UNSET TITLE##",
                 "section": self.section or "",
                 "subsection": self.subsection or "",
                 "called_from": sortid,
                 "path": tuple(self.expand_stack),
             }
         )
-        self._fmt_errmsg("WIKI", msg, trace)
+        self._fmt_errmsg("INFO", msg, trace)
 
     def to_return(self) -> CollatedErrorReturnData:
         """Returns a dictionary with errors, warnings, and debug messages
