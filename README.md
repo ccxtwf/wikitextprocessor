@@ -100,6 +100,7 @@ from typing import Any
 from wikitextprocessor import Wtp, WikiNode, NodeKind, Page
 from wikitextprocessor.dumpparser import process_dump
 
+
 def page_handler(wtp: Wtp, page: Page) -> Any:
     wtp.start_page(page.title)
     # process parse tree
@@ -107,9 +108,8 @@ def page_handler(wtp: Wtp, page: Page) -> Any:
     # or get expanded plain text
     text = wtp.expand(page.body)
 
-wtp = Wtp(
-    db_path="en_20230801.db", lang_code="en", project="wiktionary"
-)
+
+wtp = Wtp(db_path="en_20230801.db", lang_code="en", project="wiktionary")
 
 # extract dump file then save pages to SQLite file
 process_dump(
@@ -118,9 +118,7 @@ process_dump(
     {0, 10, 110, 828},  # namespace id, can be found at the start of dump file
 )
 
-for _ in map(
-    partial(page_handler, wtp), wtp.get_all_pages([0])
-):
+for _ in map(partial(page_handler, wtp), wtp.get_all_pages([0])):
     pass
 ```
 
